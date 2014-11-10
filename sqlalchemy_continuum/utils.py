@@ -423,7 +423,6 @@ def changeset(obj):
     return data
 
 
-
 class VersioningClauseAdapter(sa.sql.visitors.ReplacingCloningVisitor):
     def replace(self, col):
         if isinstance(col, sa.Column):
@@ -433,3 +432,20 @@ class VersioningClauseAdapter(sa.sql.visitors.ReplacingCloningVisitor):
 
 def adapt_columns(expr):
     return VersioningClauseAdapter().traverse(expr)
+
+
+def commited_identity(obj):
+    """Returns a tuple of the primary keys of the object without any
+    modifications that may have occured within the session
+    """
+    old_pks = []
+    obj_inspect = sa.inspect(obj)
+    mapper = obj_inspect.mapper
+    for column in get_primary_keys(obj).itervalues():
+        old_pk = obj_inspect.attrs.get(
+            mapper.get_property_by_column(column).key).history.deleted
+        if old_pk:
+            old_pks.append(old_pk[0])
+        else:
+            old_pks.append(getattr(obj, column.name))
+    return tuple(old_pks)
